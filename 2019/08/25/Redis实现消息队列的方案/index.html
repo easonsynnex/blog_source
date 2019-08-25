@@ -22,7 +22,7 @@
 <meta property="og:locale" content="zh-CN">
 <meta property="og:image" content="http://www.cdeason.cn/images/2019/08/25/fc70de40-c72a-11e9-b114-619b79bcbc54.jpg">
 <meta property="og:image" content="http://www.cdeason.cn/images/2019/08/25/f2378a60-c72e-11e9-b114-619b79bcbc54.jpg">
-<meta property="og:updated_time" content="2019-08-25T12:08:54.364Z">
+<meta property="og:updated_time" content="2019-08-25T12:12:29.966Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Redis实现消息队列的方案">
 <meta name="twitter:description" content="Redis作为内存中的数据结构存储，常用作数据库、缓存和消息代理。它支持数据结构，如 字符串，散列，列表，集合，带有范围查询的排序集（sorted sets），位图（bitmaps），超级日志（hyperloglogs），具有半径查询和流的地理空间索引。Redis具有内置复制，Lua脚本，LRU驱逐，事务和不同级别的磁盘持久性，并通过Redis Sentinel和Redis Cluster自动分区">
@@ -44,7 +44,7 @@
 
   
     <meta property="article:published_time" content="Sun Aug 25 2019 18:16:17 GMT+0800">
-    <meta property="article:modified_time" content="Sun Aug 25 2019 20:08:54 GMT+0800">
+    <meta property="article:modified_time" content="Sun Aug 25 2019 20:12:29 GMT+0800">
   
 
   
@@ -182,7 +182,7 @@
   <style>#main article .mdui-card-content .center-block{display:block!important;margin-right:auto!important;margin-left:auto!important}</style>
   <article class="mdui-card mdui-m-b-5">
     <header class="mdui-card-media">
-      <img src="/images/random/material-15.png" style="max-height: 240px;">
+      <img src="/images/random/material-10.png" style="max-height: 240px;">
       <div class="mdui-card-media-covered">
         <div class="mdui-card-primary">
           <div class="mdui-card-primary-title">Redis实现消息队列的方案</div>
@@ -280,7 +280,7 @@
 <h3 id="PEL如何避免消息丢失"><a href="#PEL如何避免消息丢失" class="headerlink" title="PEL如何避免消息丢失"></a>PEL如何避免消息丢失</h3><p>在客户端消费者读取Stream消息时，Redis服务器将消息回复给客户端的过程中，客户端突然断开了连接，消息就丢失了。但是PEL里已经保存了发出去的消息ID。待客户端重新连上之后，可以再次收到PEL中的消息ID列表。不过此时xreadgroup的起始消息必须是任意有效的消息ID，一般将参数设为0-0，表示读取所有的PEL消息以及自last_delivered_id之后的新消息。</p>
 <h3 id="分区Partition"><a href="#分区Partition" class="headerlink" title="分区Partition"></a>分区Partition</h3><p>Redis没有原生支持分区的能力，想要使用分区，需要分配多个Stream，然后在客户端使用一定的策略来讲消息放入不同的stream。</p>
 <h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><p>Stream的消费模型借鉴了kafka的消费分组的概念，它弥补了Redis Pub/Sub不能持久化消息的缺陷。但是它又不同于kafka，kafka的消息可以分partition，而Stream不行。如果非要分parition的话，得在客户端做，提供不同的Stream名称，对消息进行hash取模来选择往哪个Stream里塞。如果读者稍微研究过Redis作者的另一个开源项目Disque的话，这极可能是作者意识到Disque项目的活跃程度不够，所以将Disque的内容移植到了Redis里面。这只是本人的猜测，未必是作者的初衷。如果读者有什么不同的想法，可以在评论区一起参与讨论。</p>
-<p>参考文章：<a href="https://blog.csdn.net/enmotech/article/details/81230531" target="_blank" rel="noopener">https://blog.csdn.net/enmotech/article/details/81230531</a></p>
+<p>参考文章：<br>    <a href="https://blog.csdn.net/enmotech/article/details/81230531" target="_blank" rel="noopener">https://blog.csdn.net/enmotech/article/details/81230531</a><br>    <a href="http://www.hellokang.net/redis/message-queue-by-redis.html" target="_blank" rel="noopener">http://www.hellokang.net/redis/message-queue-by-redis.html</a></p>
 
       <blockquote class="mdui-m-t-5">
         
