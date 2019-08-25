@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="renderer" content="webkit">
+
+  
+  <title>Redis实现消息队列的方案 | 尹胜的个人博客</title>
+
+  <link rel="shortcut icon" href="/images/favicon.png">
+  <link rel="alternate" href="/atom.xml" title="尹胜的个人博客">
+  <meta name="description" content="Redis作为内存中的数据结构存储，常用作数据库、缓存和消息代理。它支持数据结构，如 字符串，散列，列表，集合，带有范围查询的排序集（sorted sets），位图（bitmaps），超级日志（hyperloglogs），具有半径查询和流的地理空间索引。Redis具有内置复制，Lua脚本，LRU驱逐，事务和不同级别的磁盘持久性，并通过Redis Sentinel和Redis Cluster自动分区">
+<meta name="keywords" content="Redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis实现消息队列的方案">
+<meta property="og:url" content="http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/index.html">
+<meta property="og:site_name" content="尹胜的个人博客">
+<meta property="og:description" content="Redis作为内存中的数据结构存储，常用作数据库、缓存和消息代理。它支持数据结构，如 字符串，散列，列表，集合，带有范围查询的排序集（sorted sets），位图（bitmaps），超级日志（hyperloglogs），具有半径查询和流的地理空间索引。Redis具有内置复制，Lua脚本，LRU驱逐，事务和不同级别的磁盘持久性，并通过Redis Sentinel和Redis Cluster自动分区">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://www.cdeason.cn/images/2019/08/25/fc70de40-c72a-11e9-b114-619b79bcbc54.jpg">
+<meta property="og:image" content="http://www.cdeason.cn/images/2019/08/25/f2378a60-c72e-11e9-b114-619b79bcbc54.jpg">
+<meta property="og:updated_time" content="2019-08-25T11:59:39.048Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Redis实现消息队列的方案">
+<meta name="twitter:description" content="Redis作为内存中的数据结构存储，常用作数据库、缓存和消息代理。它支持数据结构，如 字符串，散列，列表，集合，带有范围查询的排序集（sorted sets），位图（bitmaps），超级日志（hyperloglogs），具有半径查询和流的地理空间索引。Redis具有内置复制，Lua脚本，LRU驱逐，事务和不同级别的磁盘持久性，并通过Redis Sentinel和Redis Cluster自动分区">
+<meta name="twitter:image" content="http://www.cdeason.cn/images/2019/08/25/fc70de40-c72a-11e9-b114-619b79bcbc54.jpg">
+
+  <meta name="format-detection" content="telephone=no,email=no">
+  <meta name="theme-color" content="#9C27B0">
+  <meta name="description" content="Hope I can keep it up.">
+  <meta name="keywords" content=",Redis">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="尹胜的个人博客">
+  <meta name="msapplication-starturl" content="http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/">
+  <meta name="msapplication-navbutton-color" content="#9C27B0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="尹胜的个人博客">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="/images/favicon.png">
+
+  
+    <meta property="article:published_time" content="Sun Aug 25 2019 18:16:17 GMT+0800">
+    <meta property="article:modified_time" content="Sun Aug 25 2019 19:59:39 GMT+0800">
+  
+
+  
+    <link rel="canonical" href="http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/">
+  
+
+  
+  
+
+  
+  <script>
+  var _hmt = _hmt || [];
+  (function() {var hm = document.createElement('script');
+  hm.src = 'https://hm.baidu.com/hm.js?117216f8fc3d9ee821e2eda652408b83';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(hm, s);
+  })();
+</script>
+  
+
+  <link rel="stylesheet" href="/css/mdui.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="mdui-appbar-with-toolbar mdui-drawer-body-left mdui-theme-primary-indigo mdui-theme-accent-blue">
+  <script>var a=localStorage.getItem("mdui-theme-layout-dark");if(a){document.getElementsByTagName("body")[0].className+=" mdui-theme-layout-dark"};</script>
+  <header id="header" class="mdui-appbar mdui-appbar-fixed mdui-appbar-scroll-hide mdui-appbar-inset">
+  <div class="mdui-toolbar mdui-color-theme">
+    <a href="javascript:;" class="mdui-btn mdui-btn-icon" mdui-drawer="{target: '#sidebar', swipe: true}"><i class="mdui-icon material-icons">menu</i></a>
+    <a href="/" class="mdui-typo-headline">尹胜的个人博客</a>
+    <div class="mdui-toolbar-spacer"></div>
+    <a href="javascript:;" class="mdui-btn mdui-btn-icon" mdui-dialog="{target: '#search'}" mdui-tooltip="{content: '搜索'}"><i class="mdui-icon material-icons">search</i></a>
+    <a href="/atom.xml" class="mdui-btn mdui-btn-icon" mdui-tooltip="{content: 'RSS'}"><i class="mdui-icon material-icons">rss_feed</i></a>
+  </div>
+</header>
+<div class="mdui-dialog" id="search">
+  
+    <div class="search-form">
+      <input type="search" class="search-form-input" placeholder="请输入关键字">
+    </div>
+    <div class="search-result" data-resource="/search.xml"></div>
+  
+</div>
+  <aside id="sidebar" class="mdui-drawer mdui-drawer-full-height">
+  <div class="mdui-grid-tile">
+    <img src="/images/banner.png" style="height: 160px;">
+    <img src="/images/avatar.png" class="avatar-animation" style="position: absolute; top: 10%; left: 24px; width: 64px; height: 64px; border: 2px solid #fff; border-radius: 50%;">
+    <div class="mdui-grid-tile-actions">
+      <div class="mdui-grid-tile-text">
+        <div class="mdui-grid-tile-title">eason</div>
+        <div class="mdui-grid-tile-subtitle"><i class="mdui-icon material-icons">art_track</i>情不知所起，而一往情深</div>
+      </div>
+      
+        <div class="mdui-grid-tile-buttons">
+          <a href="mailto:1070388550@qq.com" class="mdui-btn mdui-btn-icon" mdui-tooltip="{content: '1070388550@qq.com'}"><i class="mdui-icon material-icons">email</i></a>
+        </div>
+      
+    </div>
+  </div>
+
+  <div class="mdui-list" mdui-collapse="{accordion: true}">
+    <a href="/" class="mdui-list-item mdui-ripple">
+      <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-blue">home</i>
+      <div class="mdui-list-item-content">主页</div>
+    </a>
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-deep-orange">inbox</i>
+        <div class="mdui-list-item-content">归档</div>
+        <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        <a class="mdui-ripple sidebar_archives-link" href="/archives/2019/08/">八月 2019<span class="mdui-ripple sidebar_archives-count">2</span></a>
+        
+      </div>
+    </div>
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-green">chrome_reader_mode</i>
+        <div class="mdui-list-item-content">分类</div>
+        <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        <a class="mdui-ripple sidebar_archives-link" href="/categories/技术/">技术<span class="mdui-ripple sidebar_archives-count">1</span></a><a class="mdui-ripple sidebar_archives-link" href="/categories/记录/">记录<span class="mdui-ripple sidebar_archives-count">1</span></a>
+        
+      </div>
+    </div>
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-brown">bookmark</i>
+        <div class="mdui-list-item-content">标签</div>
+        <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        <a class="mdui-ripple sidebar_archives-link" href="/tags/Redis/">Redis<span class="mdui-ripple sidebar_archives-count">1</span></a><a class="mdui-ripple sidebar_archives-link" href="/tags/hexo/">hexo<span class="mdui-ripple sidebar_archives-count">1</span></a>
+        
+      </div>
+    </div>
+    <a href="/about" class="mdui-list-item mdui-ripple">
+      <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-purple">person</i>
+      <div class="mdui-list-item-content">关于</div>
+    </a>
+  </div>
+
+  <div class="mdui-divider"></div>
+
+  <div class="mdui-list" mdui-collapse="{accordion: true}">
+    
+      <a href="/tagcloud" class="mdui-list-item mdui-ripple">标签云</a>
+    
+      <a href="/photos" class="mdui-list-item mdui-ripple">相册</a>
+    
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <div class="mdui-list-item-content">友情链接</div>
+        <i class="mdui-list-item-icon mdui-icon material-icons">link</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        
+          <a href="javascript:;" class="mdui-list-item mdui-ripple mdui-p-l-2 mdui-text-color-theme" style="justify-content: center;">链接为空</a>
+        
+      </div>
+    </div>
+  </div>
+  <div>
+    <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=86 src="//music.163.com/outchain/player?type=2&id=28656155&auto=1&height=66"></iframe>
+  </div>
+</aside>
+
+  <main id="main" class="mdui-m-t-5 fadeIn animated">
+  <link rel="stylesheet" href="https://cdn.bootcss.com/fancybox/3.5.7/jquery.fancybox.min.css">
+  <style>#main article .mdui-card-content .center-block{display:block!important;margin-right:auto!important;margin-left:auto!important}</style>
+  <article class="mdui-card mdui-m-b-5">
+    <header class="mdui-card-media">
+      <img src="/images/random/material-18.png" style="max-height: 240px;">
+      <div class="mdui-card-media-covered">
+        <div class="mdui-card-primary">
+          <div class="mdui-card-primary-title">Redis实现消息队列的方案</div>
+          <div class="mdui-card-primary-subtitle"><i class="iconfont">&#xe697;</i> 2019-08-25 / <i class="iconfont">&#xe601;</i> eason &nbsp;&nbsp; <span id="busuanzi_container_page_pv" style="display: none;"><i class="iconfont">&#xe7fd;</i> <span id="busuanzi_value_page_pv"></span></span></div>
+        </div>
+      </div>
+      <div class="mdui-card-menu">
+        
+          <button class="mdui-btn mdui-btn-icon mdui-text-color-white" mdui-menu="{target: '#qrcode', align: 'right'}"><i class="mdui-icon material-icons">devices</i></button>
+          <ul class="mdui-menu" id="qrcode">
+            
+              <li class="mdui-menu-item"><a class="mdui-text-center mdui-ripple">发送到手机</a></li>
+            
+            <li class="mdui-menu-item" disabled>
+              
+                <img src="http://qr.liantu.com/api.php?w=246&m=10&text=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/">
+              
+            </li>
+          </ul>
+        
+        
+          <button class="mdui-btn mdui-btn-icon mdui-text-color-white" mdui-menu="{target: '#share_menu', align: 'right'}"><i class="mdui-icon material-icons">share</i></button>
+          <ul class="mdui-menu" id="share_menu">
+            <li class="mdui-menu-item">
+              <a href="http://service.weibo.com/share/share.php?appkey=&title=Redis实现消息队列的方案&url=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/&pic=http://www.cdeason.cn/images/favicon.png&searchPic=false&style=simple" target="_blank" class="mdui-ripple">分享到微博</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://twitter.com/intent/tweet?text=Redis实现消息队列的方案&url=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/&via=eason" target="_blank" class="mdui-ripple">分享到Twitter</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://www.facebook.com/sharer/sharer.php?u=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/" target="_blank" class="mdui-ripple">分享到Facebook</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://plus.google.com/share?url=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/" target="_blank" class="mdui-ripple">分享到Google+</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://www.linkedin.com/shareArticle?mini=true&url=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/&title=Redis实现消息队列的方案" target="_blank" class="mdui-ripple">分享到LinkedIn</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="http://connect.qq.com/widget/shareqq/index.html?site=尹胜的个人博客&title=Redis实现消息队列的方案&summary=Hope I can keep it up.&pics=http://www.cdeason.cn/images/favicon.png&url=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/" target="_blank" class="mdui-ripple">分享到QQ</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://telegram.me/share/url?url=http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/&text=Redis实现消息队列的方案" target="_blank" class="mdui-ripple">分享到Telegram</a>
+            </li>
+          </ul>
+        
+      </div>
+    </header>
+    <div class="mdui-card-content mdui-typo">
+      <p>Redis作为内存中的数据结构存储，常用作数据库、缓存和消息代理。它支持数据结构，如 字符串，散列，列表，集合，带有范围查询的排序集（sorted sets），位图（bitmaps），超级日志（hyperloglogs），具有半径查询和流的地理空间索引。Redis具有内置复制，Lua脚本，LRU驱逐，事务和不同级别的磁盘持久性，并通过Redis Sentinel和Redis Cluster自动分区。<br>  为了实现其出色的性能，Redis使用<strong>内存数据集（in-memory dataset）</strong>。<br>MQ应用有很多，比如ActiveMQ,RabbitMQ,Kafka等，但是也可以基于redis来实现，可以降低系统的维护成本和实现复杂度，本篇介绍redis中实现消息队列的几种方案。<br>    1. 基于List的 LPUSH+BRPOP 的实现<br>    2. PUB/SUB，订阅/发布模式<br>    3. 基于Sorted-Set的实现<br>    4. 基于Stream类型的实现</p>
+<h2 id="基于异步消息队列List-lpush-brpop-rpush-blpop"><a href="#基于异步消息队列List-lpush-brpop-rpush-blpop" class="headerlink" title="基于异步消息队列List lpush-brpop(rpush-blpop)"></a>基于异步消息队列List lpush-brpop(rpush-blpop)</h2><p>  使用<strong>rpush</strong>和<strong>lpush</strong>操作入队列，<strong>lpop</strong>和<strong>rpop</strong>操作出队列。<br>  <strong>List支持多个生产者和消费者并发进出消息</strong>，每个消费者拿到都是<strong>不同</strong>的列表元素。<br>  但是当队列为空时，lpop和rpop会一直空轮训，消耗资源；所以引入阻塞读blpop和brpop（b代表blocking），阻塞读在队列没有数据的时候进入休眠状态，<br>  一旦数据到来则立刻醒过来，消息延迟几乎为零。<br>  <strong>注意</strong><br>  你以为上面的方案很完美？还有个问题需要解决：空闲连接的问题。<br>  如果线程一直阻塞在那里，Redis客户端的连接就成了闲置连接，闲置过久，服务器一般会主动断开连接，减少闲置资源占用，这个时候blpop和brpop或抛出异常，<br>  所以在编写客户端消费者的时候要小心，如果捕获到异常，还有重试。<br>  <strong>缺点：</strong></p>
+<ul>
+<li><p>做消费者确认ACK麻烦，不能保证消费者消费消息后是否成功处理的问题（宕机或处理异常等），通常需要维护一个Pending列表，保证消息处理确认。</p>
+</li>
+<li><p>不能做广播模式，如pub/sub，消息发布/订阅模型</p>
+</li>
+<li><p>不能重复消费，一旦消费就会被删除</p>
+</li>
+<li><p>不支持分组消费</p>
+<h2 id="PUB-SUB-订阅-发布模式"><a href="#PUB-SUB-订阅-发布模式" class="headerlink" title="PUB/SUB,订阅/发布模式"></a>PUB/SUB,订阅/发布模式</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">PUBLISH，向信道发送消息</span><br><span class="line">UNSUBSCRIBE，取消订阅</span><br></pre></td></tr></table></figure>
+
+<p>此模式允许生产者只生产一次消息，由中间件负责将消息复制到多个消息队列，每个消息队列由对应的消费组消费。</p>
+</li>
+</ul>
+<p>  <strong>优点</strong></p>
+<ul>
+<li>典型的广播模式，一个消息可以发布到多个消费者</li>
+<li>多信道订阅，消费者可以同时订阅多个信道，从而接收多类消息</li>
+<li>消息即时发送，消息不用等待消费者读取，消费者会自动接收到信道发布的消息</li>
+</ul>
+<p>  <strong>缺点</strong></p>
+<ul>
+<li>消息一旦发布，不能接收。换句话就是发布时若客户端不在线，则消息丢失，不能寻回</li>
+<li>不能保证每个消费者接收的时间是一致的</li>
+<li>若消费者客户端出现消息积压，到一定程度，会被强制断开，导致消息意外丢失。通常发生在消息的生产远大于消费速度时<br><strong><em>可见，Pub/Sub 模式不适合做消息存储，消息积压类的业务，而是擅长处理广播，即时通讯，即时反馈的业务。</em></strong><h2 id="基于Sorted-Set的实现"><a href="#基于Sorted-Set的实现" class="headerlink" title="基于Sorted-Set的实现"></a>基于Sorted-Set的实现</h2>Sortes Set(有序列表)，类似于java的SortedSet和HashMap的结合体，一方面她是一个set，保证内部value的唯一性，另一方面它可以给每个value赋予一个score，代表这个value的<br>排序权重。内部实现是“跳跃表”。<br>有序集合的方案是在自己确定消息顺ID时比较常用，使用集合成员的Score来作为消息ID，保证顺序，还可以保证消息ID的单调递增。通常可以使用时间戳+序号的方案。确保了消息ID的单调递增，利用SortedSet的依据<br>Score排序的特征，就可以制作一个有序的消息队列了。</li>
+</ul>
+<p>  <strong>优点</strong><br>  就是可以自定义消息ID，在消息ID有意义时，比较重要。<br>  <strong>缺点</strong><br>  缺点也明显，不允许重复消息（因为是集合），同时消息ID确定有错误会导致消息的顺序出错。</p>
+<h2 id="基于Stream类型的实现"><a href="#基于Stream类型的实现" class="headerlink" title="基于Stream类型的实现"></a>基于Stream类型的实现</h2><p>  Stream为redis 5.0后新增的数据结构。支持多播的可持久化消息队列，实现借鉴了Kafka设计。<br>  <img src="/images/2019/08/25/fc70de40-c72a-11e9-b114-619b79bcbc54.jpg" alt="stream.jpg"><br>  Redis Stream的结构如上图所示，<strong>它有一个消息链表，将所有加入的消息都串起来，每个消息都有一个唯一的ID和对应的内容</strong>。<strong>消息是持久化的</strong>，Redis重启后，内容还在。</p>
+<p>每个Stream都有唯一的名称，它就是Redis的key，在我们<strong>首次使用xadd指令追加消息时自动创建</strong>。</p>
+<p><strong>每个Stream都可以挂多个消费组，每个消费组会有个游标last_delivered_id在Stream数组之上往前移动，表示当前消费组已经消费到哪条消息了</strong>。每个消费组都有一个Stream内唯一的名称，消费组不会自动创建，它需要单独的指令xgroup create进行创建，需要指定从Stream的某个消息ID开始消费，这个ID用来初始化last_delivered_id变量。</p>
+<p>每个消费组(Consumer Group)的状态都是独立的，相互不受影响。也就是说<strong>同一份Stream内部的消息会被每个消费组都消费到</strong>。</p>
+<p><strong>同一个消费组(Consumer Group)可以挂接多个消费者(Consumer)，这些消费者之间是竞争关系</strong>，任意一个消费者读取了消息都会使游标last_delivered_id往前移动。每个消费者者有一个组内唯一名称。</p>
+<p>消费者(Consumer)内部会有个状态变量<strong>pending_ids</strong>，它记录了当前已经被客户端读取的消息，但是还没有ack。如果客户端没有ack，这个变量里面的消息ID会越来越多，一旦某个消息被ack，它就开始减少。这个pending_ids变量在Redis官方被称之为PEL，也就是Pending Entries List，这是一个很核心的数据结构，它用来确保客户端至少消费了消息一次，而不会在网络传输的中途丢失了没处理。<br>  <strong>增删改查</strong></p>
+<ol>
+<li>xadd <strong>追加消息</strong></li>
+<li>xdel 删除消息，这里的删除仅仅是设置了标志位，不影响消息总长度 </li>
+<li>xrange <strong>获取消息列表</strong>，会自动过滤已经删除的消息</li>
+<li>xlen 消息长度 </li>
+<li>del 删除Stream<h3 id="独立消费"><a href="#独立消费" class="headerlink" title="独立消费"></a>独立消费</h3>我们可以在不定义消费组的情况下进行Stream消息的独立消费，当Stream没有新消息时，甚至可以阻塞等待。Redis设计了一个单独的消费指令xread，可以将Stream当成普通的消息队列(list)来使用。使用xread时，我们可以完全忽略消费组(Consumer Group)的存在，就好比Stream就是一个普通的列表(list)。<h3 id="创建消费组"><a href="#创建消费组" class="headerlink" title="创建消费组"></a>创建消费组</h3>Stream通过xgroup create指令创建消费组(Consumer Group)，需要传递起始消息ID参数用来初始化last_delivered_id变量。<h3 id="消费"><a href="#消费" class="headerlink" title="消费"></a>消费</h3>Stream提供了xreadgroup指令可以进行消费组的组内消费，需要提供消费组名称、消费者名称和起始消息ID。它同xread一样，也可以阻塞等待新消息。读到新消息后，对应的消息ID就会进入消费者的PEL(正在处理的消息)结构里，客户端处理完毕后使用xack指令通知服务器，本条消息已经处理完毕，该消息ID就会从PEL中移除。<h3 id="Stream消息太多怎么办"><a href="#Stream消息太多怎么办" class="headerlink" title="Stream消息太多怎么办"></a>Stream消息太多怎么办</h3>读者很容易想到，要是消息积累太多，Stream的链表岂不是很长，内容会不会爆掉就是个问题了。xdel指令又不会删除消息，它只是给消息做了个标志位。<br>Redis自然考虑到了这一点，所以它提供了一个定长Stream功能。在xadd的指令提供一个定长长度maxlen，就可以将老的消息干掉，确保最多不超过指定长度。<figure class="highlight plain"><figcaption><span>xlen codehole</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">(integer) 5</span><br><span class="line">127.0.0.1:6379&gt; xadd codehole maxlen 3 * name xiaorui age 1</span><br><span class="line">1527855160273-0</span><br><span class="line">127.0.0.1:6379&gt; xlen codehole</span><br><span class="line">(integer) 3</span><br></pre></td></tr></table></figure>
+
+</li>
+</ol>
+<p>我们看到Stream的长度被砍掉了。</p>
+<h4 id="消息如果忘记ACK会怎样"><a href="#消息如果忘记ACK会怎样" class="headerlink" title="消息如果忘记ACK会怎样"></a>消息如果忘记ACK会怎样</h4><p><img src="/images/2019/08/25/f2378a60-c72e-11e9-b114-619b79bcbc54.jpg" alt="PEL.jpg"><br>Stream在每个消费者结构中保存了正在处理中的消息ID列表PEL，如果消费者收到了消息处理完了但是没有回复ack，就会导致PEL列表不断增长，如果有很多消费组的话，那么这个PEL占用的内存就会放大。</p>
+<h3 id="PEL如何避免消息丢失"><a href="#PEL如何避免消息丢失" class="headerlink" title="PEL如何避免消息丢失"></a>PEL如何避免消息丢失</h3><p>在客户端消费者读取Stream消息时，Redis服务器将消息回复给客户端的过程中，客户端突然断开了连接，消息就丢失了。但是PEL里已经保存了发出去的消息ID。待客户端重新连上之后，可以再次收到PEL中的消息ID列表。不过此时xreadgroup的起始消息必须是任意有效的消息ID，一般将参数设为0-0，表示读取所有的PEL消息以及自last_delivered_id之后的新消息。</p>
+<h3 id="分区Partition"><a href="#分区Partition" class="headerlink" title="分区Partition"></a>分区Partition</h3><p>Redis没有原生支持分区的能力，想要使用分区，需要分配多个Stream，然后在客户端使用一定的策略来讲消息放入不同的stream。</p>
+<h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><p>Stream的消费模型借鉴了kafka的消费分组的概念，它弥补了Redis Pub/Sub不能持久化消息的缺陷。但是它又不同于kafka，kafka的消息可以分partition，而Stream不行。如果非要分parition的话，得在客户端做，提供不同的Stream名称，对消息进行hash取模来选择往哪个Stream里塞。如果读者稍微研究过Redis作者的另一个开源项目Disque的话，这极可能是作者意识到Disque项目的活跃程度不够，所以将Disque的内容移植到了Redis里面。这只是本人的猜测，未必是作者的初衷。如果读者有什么不同的想法，可以在评论区一起参与讨论。</p>
+
+      <blockquote class="mdui-m-t-5">
+        
+        <strong>本文链接：</strong><a href="http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/">http://www.cdeason.cn/2019/08/25/Redis实现消息队列的方案/</a>
+      </blockquote>
+      
+        <div class="mdui-text-center">
+          <button class="mdui-fab mdui-color-deep-orange mdui-text-color-white mdui-ripple" mdui-dialog="{target: '#donate'}" mdui-tooltip="{content: '打赏', position: 'top'}"><i class="mdui-icon material-icons">thumb_up</i></button>
+        </div>
+      
+    </div>
+    <footer class="mdui-card-actions">
+      
+        <a class="mdui-ripple article_categories-link" href="/categories/技术/">技术</a>
+      
+      
+        <a class="mdui-ripple article_tags-link" href="/tags/Redis/">Redis</a>
+      
+    </footer>
+    
+      <div class="mdui-dialog" id="donate">
+        <div class="mdui-tab mdui-tab-centered" mdui-tab>
+          
+            <a href="#donate-0" class="mdui-ripple">支付宝</a>
+          
+        </div>
+        
+        
+          <div id="donate-0" class="mdui-p-a-2 mdui-typo mdui-text-center">
+            
+              <img src="/images/alipay.jpg" style="width: 300px;">
+            
+          </div>
+        
+      </div>
+    
+  </article>
+  <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/fancybox/3.5.7/jquery.fancybox.min.js"></script>
+  <script>$("#main article .mdui-card-content img.fancybox").on("click",function(e){$.fancybox.open({src:$(this).attr("src")});});</script>
+
+
+  <nav id="paginator">
+    
+    <div class="spacer"></div>
+    
+      <a rel="next" class="extend next" href="/2019/08/24/记录hexo博客搭建的一些过程/">
+        下一篇&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <button aria-label="next" class="mdui-btn mdui-btn-raised mdui-btn-dense mdui-btn-icon mdui-color-theme-accent mdui-ripple"><i class="mdui-icon material-icons">arrow_forward</i></button>
+      </a>
+    
+  </nav>
+
+
+  <div id="comment" class="mdui-m-t-5">
+    <div class="vcomment"></div>
+<script src="//cdnjs.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+<script>
+  var GUEST_INFO = ['nick', 'mail', 'link'];
+  var guest_info = ''.split(',').filter(function (item) {
+    return GUEST_INFO.indexOf(item) > -1;
+  });
+  var notify = '' === 'true';
+  var verify = '' === 'true';
+  new Valine({
+    av: AV,
+    el: '.vcomment',
+    notify: notify,
+    verify: verify,
+    appId: "Q1efkVbdwTB1TdxzSaxnREJ1-gzGzoHsz",
+    appKey: "GzNWwb7pzB7WKtPzb1awqX5W",
+    placeholder: "来说两句吧...",
+    pageSize: '10',
+    avatar: '',
+    lang: '',
+    guest_info: guest_info
+  });
+</script>
+  </div>
+
+
+</main>
+  <footer id="footer" class="mdui-m-t-5 mdui-p-y-3 mdui-color-theme">
+  <div class="mdui-p-y-0 mdui-text-center">
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  </div>
+  <div class="mdui-p-y-1 mdui-text-center">
+    Copyright &copy; 2019 - 2019 eason<br>
+    Powered by <a href="https://hexo.io/" target="_blank" class="mdui-text-color-theme-accent">Hexo</a> | 蜀ICP备18035448号-1
+    <br>
+      <span id="busuanzi_container_site_pv" style="display: none;"><i class="iconfont">&#xe7fd;</i> <span id="busuanzi_value_site_pv"></span></span> &nbsp;&nbsp;
+      <span id="busuanzi_container_site_uv" style="display: none;"><i class="iconfont">&#xe601;</i> <span id="busuanzi_value_site_uv"></span></span>
+    
+  </div>
+</footer>
+  <button id="gotop" class="mdui-fab mdui-fab-fixed mdui-fab-hide mdui-ripple mdui-color-theme-accent"><i class="mdui-icon material-icons">arrow_upward</i></button>
+  <script async src="http://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+  <script src="/js/mdui.js"></script>
+<script src="/js/script.js"></script>
+</body>
+</html>
