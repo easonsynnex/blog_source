@@ -22,7 +22,7 @@
 <meta property="og:locale" content="zh-CN">
 <meta property="og:image" content="http://www.cdeason.cn/images/2019/08/25/fc70de40-c72a-11e9-b114-619b79bcbc54.jpg">
 <meta property="og:image" content="http://www.cdeason.cn/images/2019/08/25/f2378a60-c72e-11e9-b114-619b79bcbc54.jpg">
-<meta property="og:updated_time" content="2019-08-25T11:59:39.048Z">
+<meta property="og:updated_time" content="2019-08-25T12:08:54.364Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Redis实现消息队列的方案">
 <meta name="twitter:description" content="Redis作为内存中的数据结构存储，常用作数据库、缓存和消息代理。它支持数据结构，如 字符串，散列，列表，集合，带有范围查询的排序集（sorted sets），位图（bitmaps），超级日志（hyperloglogs），具有半径查询和流的地理空间索引。Redis具有内置复制，Lua脚本，LRU驱逐，事务和不同级别的磁盘持久性，并通过Redis Sentinel和Redis Cluster自动分区">
@@ -44,7 +44,7 @@
 
   
     <meta property="article:published_time" content="Sun Aug 25 2019 18:16:17 GMT+0800">
-    <meta property="article:modified_time" content="Sun Aug 25 2019 19:59:39 GMT+0800">
+    <meta property="article:modified_time" content="Sun Aug 25 2019 20:08:54 GMT+0800">
   
 
   
@@ -182,7 +182,7 @@
   <style>#main article .mdui-card-content .center-block{display:block!important;margin-right:auto!important;margin-left:auto!important}</style>
   <article class="mdui-card mdui-m-b-5">
     <header class="mdui-card-media">
-      <img src="/images/random/material-18.png" style="max-height: 240px;">
+      <img src="/images/random/material-15.png" style="max-height: 240px;">
       <div class="mdui-card-media-covered">
         <div class="mdui-card-primary">
           <div class="mdui-card-primary-title">Redis实现消息队列的方案</div>
@@ -242,7 +242,7 @@
 <li><p>不能重复消费，一旦消费就会被删除</p>
 </li>
 <li><p>不支持分组消费</p>
-<h2 id="PUB-SUB-订阅-发布模式"><a href="#PUB-SUB-订阅-发布模式" class="headerlink" title="PUB/SUB,订阅/发布模式"></a>PUB/SUB,订阅/发布模式</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">PUBLISH，向信道发送消息</span><br><span class="line">UNSUBSCRIBE，取消订阅</span><br></pre></td></tr></table></figure>
+<h2 id="PUB-SUB-订阅-发布模式"><a href="#PUB-SUB-订阅-发布模式" class="headerlink" title="PUB/SUB,订阅/发布模式"></a>PUB/SUB,订阅/发布模式</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">SUBSCRIBE，用于订阅信道</span><br><span class="line">PUBLISH，向信道发送消息</span><br><span class="line">UNSUBSCRIBE，取消订阅</span><br></pre></td></tr></table></figure>
 
 <p>此模式允许生产者只生产一次消息，由中间件负责将消息复制到多个消息队列，每个消息队列由对应的消费组消费。</p>
 </li>
@@ -271,7 +271,7 @@
 <li>xdel 删除消息，这里的删除仅仅是设置了标志位，不影响消息总长度 </li>
 <li>xrange <strong>获取消息列表</strong>，会自动过滤已经删除的消息</li>
 <li>xlen 消息长度 </li>
-<li>del 删除Stream<h3 id="独立消费"><a href="#独立消费" class="headerlink" title="独立消费"></a>独立消费</h3>我们可以在不定义消费组的情况下进行Stream消息的独立消费，当Stream没有新消息时，甚至可以阻塞等待。Redis设计了一个单独的消费指令xread，可以将Stream当成普通的消息队列(list)来使用。使用xread时，我们可以完全忽略消费组(Consumer Group)的存在，就好比Stream就是一个普通的列表(list)。<h3 id="创建消费组"><a href="#创建消费组" class="headerlink" title="创建消费组"></a>创建消费组</h3>Stream通过xgroup create指令创建消费组(Consumer Group)，需要传递起始消息ID参数用来初始化last_delivered_id变量。<h3 id="消费"><a href="#消费" class="headerlink" title="消费"></a>消费</h3>Stream提供了xreadgroup指令可以进行消费组的组内消费，需要提供消费组名称、消费者名称和起始消息ID。它同xread一样，也可以阻塞等待新消息。读到新消息后，对应的消息ID就会进入消费者的PEL(正在处理的消息)结构里，客户端处理完毕后使用xack指令通知服务器，本条消息已经处理完毕，该消息ID就会从PEL中移除。<h3 id="Stream消息太多怎么办"><a href="#Stream消息太多怎么办" class="headerlink" title="Stream消息太多怎么办"></a>Stream消息太多怎么办</h3>读者很容易想到，要是消息积累太多，Stream的链表岂不是很长，内容会不会爆掉就是个问题了。xdel指令又不会删除消息，它只是给消息做了个标志位。<br>Redis自然考虑到了这一点，所以它提供了一个定长Stream功能。在xadd的指令提供一个定长长度maxlen，就可以将老的消息干掉，确保最多不超过指定长度。<figure class="highlight plain"><figcaption><span>xlen codehole</span></figcaption><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">(integer) 5</span><br><span class="line">127.0.0.1:6379&gt; xadd codehole maxlen 3 * name xiaorui age 1</span><br><span class="line">1527855160273-0</span><br><span class="line">127.0.0.1:6379&gt; xlen codehole</span><br><span class="line">(integer) 3</span><br></pre></td></tr></table></figure>
+<li>del 删除Stream<h3 id="独立消费"><a href="#独立消费" class="headerlink" title="独立消费"></a>独立消费</h3>我们可以在不定义消费组的情况下进行Stream消息的独立消费，当Stream没有新消息时，甚至可以阻塞等待。Redis设计了一个单独的消费指令xread，可以将Stream当成普通的消息队列(list)来使用。使用xread时，我们可以完全忽略消费组(Consumer Group)的存在，就好比Stream就是一个普通的列表(list)。<h3 id="创建消费组"><a href="#创建消费组" class="headerlink" title="创建消费组"></a>创建消费组</h3>Stream通过xgroup create指令创建消费组(Consumer Group)，需要传递起始消息ID参数用来初始化last_delivered_id变量。<h3 id="消费"><a href="#消费" class="headerlink" title="消费"></a>消费</h3>Stream提供了xreadgroup指令可以进行消费组的组内消费，需要提供消费组名称、消费者名称和起始消息ID。它同xread一样，也可以阻塞等待新消息。读到新消息后，对应的消息ID就会进入消费者的PEL(正在处理的消息)结构里，客户端处理完毕后使用xack指令通知服务器，本条消息已经处理完毕，该消息ID就会从PEL中移除。<h3 id="Stream消息太多怎么办"><a href="#Stream消息太多怎么办" class="headerlink" title="Stream消息太多怎么办"></a>Stream消息太多怎么办</h3>读者很容易想到，要是消息积累太多，Stream的链表岂不是很长，内容会不会爆掉就是个问题了。xdel指令又不会删除消息，它只是给消息做了个标志位。<br>Redis自然考虑到了这一点，所以它提供了一个定长Stream功能。在xadd的指令提供一个定长长度maxlen，就可以将老的消息干掉，确保最多不超过指定长度。<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; xlen codehole</span><br><span class="line">(integer) 5</span><br><span class="line">127.0.0.1:6379&gt; xadd codehole maxlen 3 * name xiaorui age 1</span><br><span class="line">1527855160273-0</span><br><span class="line">127.0.0.1:6379&gt; xlen codehole</span><br><span class="line">(integer) 3</span><br></pre></td></tr></table></figure>
 
 </li>
 </ol>
@@ -280,6 +280,7 @@
 <h3 id="PEL如何避免消息丢失"><a href="#PEL如何避免消息丢失" class="headerlink" title="PEL如何避免消息丢失"></a>PEL如何避免消息丢失</h3><p>在客户端消费者读取Stream消息时，Redis服务器将消息回复给客户端的过程中，客户端突然断开了连接，消息就丢失了。但是PEL里已经保存了发出去的消息ID。待客户端重新连上之后，可以再次收到PEL中的消息ID列表。不过此时xreadgroup的起始消息必须是任意有效的消息ID，一般将参数设为0-0，表示读取所有的PEL消息以及自last_delivered_id之后的新消息。</p>
 <h3 id="分区Partition"><a href="#分区Partition" class="headerlink" title="分区Partition"></a>分区Partition</h3><p>Redis没有原生支持分区的能力，想要使用分区，需要分配多个Stream，然后在客户端使用一定的策略来讲消息放入不同的stream。</p>
 <h3 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h3><p>Stream的消费模型借鉴了kafka的消费分组的概念，它弥补了Redis Pub/Sub不能持久化消息的缺陷。但是它又不同于kafka，kafka的消息可以分partition，而Stream不行。如果非要分parition的话，得在客户端做，提供不同的Stream名称，对消息进行hash取模来选择往哪个Stream里塞。如果读者稍微研究过Redis作者的另一个开源项目Disque的话，这极可能是作者意识到Disque项目的活跃程度不够，所以将Disque的内容移植到了Redis里面。这只是本人的猜测，未必是作者的初衷。如果读者有什么不同的想法，可以在评论区一起参与讨论。</p>
+<p>参考文章：<a href="https://blog.csdn.net/enmotech/article/details/81230531" target="_blank" rel="noopener">https://blog.csdn.net/enmotech/article/details/81230531</a></p>
 
       <blockquote class="mdui-m-t-5">
         
