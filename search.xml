@@ -4,6 +4,33 @@
   
     
     <entry>
+      <title>leetcode刷题记录</title>
+      <link href="/2019/08/28/leetcode%E5%88%B7%E9%A2%98%E8%AE%B0%E5%BD%95/"/>
+      <url>/2019/08/28/leetcode%E5%88%B7%E9%A2%98%E8%AE%B0%E5%BD%95/</url>
+      
+        <content type="html"><![CDATA[<p>我的leetcode GitHub地址：<a href="https://github.com/easonsynnex/leetcode" target="_blank" rel="noopener">leetcode记录</a><br>先从数组开始，已完成<br><a href="https://github.com/easonsynnex/leetcode/tree/master/src/main/java/com/eason/leetcode/leetcode0001" target="_blank" rel="noopener">1.两数之和</a>，<a href="https://github.com/easonsynnex/leetcode/tree/master/src/main/java/com/eason/leetcode/leetcode0026" target="_blank" rel="noopener">26.删除排序数组中的重复项</a></p>]]></content>
+      
+      
+      <categories>
+          
+          <category> 技术 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> leetcode </tag>
+            
+            <tag> 算法 </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>Redis实现消息队列的方案</title>
       <link href="/2019/08/25/Redis%E5%AE%9E%E7%8E%B0%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E7%9A%84%E6%96%B9%E6%A1%88/"/>
       <url>/2019/08/25/Redis%E5%AE%9E%E7%8E%B0%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E7%9A%84%E6%96%B9%E6%A1%88/</url>
