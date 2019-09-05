@@ -20,7 +20,7 @@
 <meta property="og:site_name" content="尹胜的个人博客">
 <meta property="og:description" content="介绍redis 4.0 以后开始支持扩展模块，redis-cell 是一个用rust语言编写的基于令牌桶算法的的限流模块，提供原子性的限流功能，并允许突发流量，可以很方便的应用于分布式环境中。 令牌桶算法令牌桶算法的原理是定义一个按一定速率产生token的桶，每次去桶中申请token，若桶中没有足够的token则申请失败，否则成功。在请求不多的情况下，桶中的token基本会饱和，此时若流量激增，并">
 <meta property="og:locale" content="zh-CN">
-<meta property="og:updated_time" content="2019-09-05T13:01:23.740Z">
+<meta property="og:updated_time" content="2019-09-05T13:10:37.198Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="redis-cell 限流模块">
 <meta name="twitter:description" content="介绍redis 4.0 以后开始支持扩展模块，redis-cell 是一个用rust语言编写的基于令牌桶算法的的限流模块，提供原子性的限流功能，并允许突发流量，可以很方便的应用于分布式环境中。 令牌桶算法令牌桶算法的原理是定义一个按一定速率产生token的桶，每次去桶中申请token，若桶中没有足够的token则申请失败，否则成功。在请求不多的情况下，桶中的token基本会饱和，此时若流量激增，并">
@@ -41,7 +41,7 @@
 
   
     <meta property="article:published_time" content="Wed Sep 04 2019 22:42:57 GMT+0800">
-    <meta property="article:modified_time" content="Thu Sep 05 2019 21:01:23 GMT+0800">
+    <meta property="article:modified_time" content="Thu Sep 05 2019 21:10:37 GMT+0800">
   
 
   
@@ -179,7 +179,7 @@
   <style>#main article .mdui-card-content .center-block{display:block!important;margin-right:auto!important;margin-left:auto!important}</style>
   <article class="mdui-card mdui-m-b-5">
     <header class="mdui-card-media">
-      <img src="/images/random/material-13.png" style="max-height: 240px;">
+      <img src="/images/random/material-14.png" style="max-height: 240px;">
       <div class="mdui-card-media-covered">
         <div class="mdui-card-primary">
           <div class="mdui-card-primary-title">redis-cell 限流模块</div>
@@ -239,8 +239,7 @@
 
 </li>
 </ol>
-<p>执行结果</p>
-<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; CL.THROTTLE user123 15 30 60</span><br><span class="line">1) (integer) 0</span><br><span class="line">2) (integer) 16</span><br><span class="line">3) (integer) 15</span><br><span class="line">4) (integer) -1</span><br><span class="line">5) (integer) 2</span><br></pre></td></tr></table></figure>
+<h3 id="执行结果"><a href="#执行结果" class="headerlink" title="执行结果"></a>执行结果</h3><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; CL.THROTTLE user123 15 30 60</span><br><span class="line">1) (integer) 0</span><br><span class="line">2) (integer) 16</span><br><span class="line">3) (integer) 15</span><br><span class="line">4) (integer) -1</span><br><span class="line">5) (integer) 2</span><br></pre></td></tr></table></figure>
 
 <p>每个数组项的含义是：</p>
 <ol>
