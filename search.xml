@@ -4,6 +4,58 @@
   
     
     <entry>
+      <title>redis-cell 限流模块</title>
+      <link href="/2019/09/04/redis-cell-%E9%99%90%E6%B5%81%E6%A8%A1%E5%9D%97/"/>
+      <url>/2019/09/04/redis-cell-%E9%99%90%E6%B5%81%E6%A8%A1%E5%9D%97/</url>
+      
+        <content type="html"><![CDATA[<h2 id="介绍"><a href="#介绍" class="headerlink" title="介绍"></a>介绍</h2><p>redis 4.0 以后开始支持扩展模块，redis-cell 是一个用rust语言编写的基于<strong>令牌桶算法</strong>的的限流模块，提供<strong>原子性的限流功能</strong>，并允许突发流量，可以<strong>很方便的应用于分布式环境中</strong>。</p><h3 id="令牌桶算法"><a href="#令牌桶算法" class="headerlink" title="令牌桶算法"></a>令牌桶算法</h3><p>令牌桶算法的原理是定义一个按一定速率产生token的桶，每次去桶中申请token，若桶中没有足够的token则申请失败，否则成功。在请求不多的情况下，桶中的token基本会饱和，此时若流量激增，并不会马上拒绝请求，所以这种算法允许一定的流量激增。<br>定义一个令牌桶，其拥有几个关键属性</p><ol><li>桶容量</li><li>令牌产生速率</li><li>当前桶中令牌数</li><li>最近一次取（生成）令牌时间<h2 id="命令"><a href="#命令" class="headerlink" title="命令"></a>命令</h2>该模块只提供了一个命令：CL.THROTTLE<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">CL.THROTTLE user123 15 30 60 1</span><br><span class="line">               ▲     ▲  ▲  ▲ ▲</span><br><span class="line">               |     |  |  | └───── apply 1 token (default if omitted)（每次申请的令牌数）</span><br><span class="line">               |     |  └──┴─────── 30 tokens / 60 seconds（往桶中的漏水速率）</span><br><span class="line">               |     └───────────── 15 max_burst （桶容量）</span><br><span class="line">               └─────────────────── key &quot;user123&quot;</span><br></pre></td></tr></table></figure></li></ol><p>执行结果</p><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">127.0.0.1:6379&gt; CL.THROTTLE user123 15 30 60</span><br><span class="line">1) (integer) 0</span><br><span class="line">2) (integer) 16</span><br><span class="line">3) (integer) 15</span><br><span class="line">4) (integer) -1</span><br><span class="line">5) (integer) 2</span><br></pre></td></tr></table></figure><p>每个数组项的含义是：</p><ol><li>行动是否有限：<br>0 表示允许该操作。<br>1 表示操作受限/阻止。</li><li>密钥的容量（max_burst+ 1）。这相当于常见的X-RateLimit-LimitHTTP标头。</li><li>密钥的剩余限制。相当于X-RateLimit-Remaining。</li><li>如果被拒绝了用户需要多长时间重试，-1是允许的操作。相当于Retry-After。</li><li>多长时间漏斗完全空出来的秒数。相当于X-RateLimit-Reset。</li></ol>]]></content>
+      
+      
+      <categories>
+          
+          <category> 技术 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Redis </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
+      <title>HyperLogLog</title>
+      <link href="/2019/09/03/HyperLogLog/"/>
+      <url>/2019/09/03/HyperLogLog/</url>
+      
+        <content type="html"><![CDATA[<h2 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h2><p>HyperLogLog是redis的高级数据结构，提供不精确的去重功能，标准误差0.81%</p><h2 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h2><p>一个页面有几千万访问量，统计这个页面一天的UV（UV需要去重，同一用户一天的多次请求只能算一次），比如105万的访问量与106万的访问量并没有多大区别，所以可以用HyperLogLog实现。</p><h2 id="用法"><a href="#用法" class="headerlink" title="用法"></a>用法</h2><ol><li>pfadd<br>用法 ：pfadd key value…</li><li>pfcount<br>用法 ：pfcount key</li><li>pfmerge<br>用法 ：用于将多个pf计数值累加在一起形成一个新的pf值， pf为发明HyperLogLog的人名字首字母缩写。<br><img src="/images/2019/09/03/88db4dd0-ce50-11e9-aefc-35a1bfce56cf.png" alt="pfmerge.png"><h2 id="注意"><a href="#注意" class="headerlink" title="注意"></a>注意</h2>HyperLogLog需要12KB存储空间，不适合单个用户使用，如果有上亿用户，相比于set的方案，存储空间只能算九牛一毛了。<br>当计数较小的时候。Redis对HyperLogLog有优化，计数小的时候空间占用很小。</li></ol>]]></content>
+      
+      
+      <categories>
+          
+          <category> 技术 </category>
+          
+      </categories>
+      
+      
+        <tags>
+            
+            <tag> Redis </tag>
+            
+            <tag> HyperLogLog </tag>
+            
+        </tags>
+      
+    </entry>
+    
+    
+    
+    <entry>
       <title>leetcode刷题记录</title>
       <link href="/2019/08/28/leetcode%E5%88%B7%E9%A2%98%E8%AE%B0%E5%BD%95/"/>
       <url>/2019/08/28/leetcode%E5%88%B7%E9%A2%98%E8%AE%B0%E5%BD%95/</url>
