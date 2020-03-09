@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta http-equiv="Cache-Control" content="no-siteapp">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <meta name="renderer" content="webkit">
+
+  
+  <title>HyperLogLog | 尹胜的个人博客</title>
+
+  <link rel="shortcut icon" href="/images/favicon.png">
+  <link rel="alternate" href="/atom.xml" title="尹胜的个人博客">
+  <meta name="description" content="概念HyperLogLog是redis的高级数据结构，提供不精确的去重功能，标准误差0.81% 场景一个页面有几千万访问量，统计这个页面一天的UV（UV需要去重，同一用户一天的多次请求只能算一次），比如105万的访问量与106万的访问量并没有多大区别，所以可以用HyperLogLog实现。 用法 pfadd用法 ：pfadd key value… pfcount用法 ：pfcount key pf">
+<meta name="keywords" content="Redis,HyperLogLog">
+<meta property="og:type" content="article">
+<meta property="og:title" content="HyperLogLog">
+<meta property="og:url" content="http://www.cdeason.cn/2019/09/03/HyperLogLog/index.html">
+<meta property="og:site_name" content="尹胜的个人博客">
+<meta property="og:description" content="概念HyperLogLog是redis的高级数据结构，提供不精确的去重功能，标准误差0.81% 场景一个页面有几千万访问量，统计这个页面一天的UV（UV需要去重，同一用户一天的多次请求只能算一次），比如105万的访问量与106万的访问量并没有多大区别，所以可以用HyperLogLog实现。 用法 pfadd用法 ：pfadd key value… pfcount用法 ：pfcount key pf">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="http://www.cdeason.cn/images/2019/09/03/88db4dd0-ce50-11e9-aefc-35a1bfce56cf.png">
+<meta property="og:updated_time" content="2019-09-03T14:58:35.152Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="HyperLogLog">
+<meta name="twitter:description" content="概念HyperLogLog是redis的高级数据结构，提供不精确的去重功能，标准误差0.81% 场景一个页面有几千万访问量，统计这个页面一天的UV（UV需要去重，同一用户一天的多次请求只能算一次），比如105万的访问量与106万的访问量并没有多大区别，所以可以用HyperLogLog实现。 用法 pfadd用法 ：pfadd key value… pfcount用法 ：pfcount key pf">
+<meta name="twitter:image" content="http://www.cdeason.cn/images/2019/09/03/88db4dd0-ce50-11e9-aefc-35a1bfce56cf.png">
+
+  <meta name="format-detection" content="telephone=no,email=no">
+  <meta name="theme-color" content>
+  <meta name="description" content="Hope I can keep it up.">
+  <meta name="keywords" content=",Redis,HyperLogLog">
+
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="application-name" content="尹胜的个人博客">
+  <meta name="msapplication-starturl" content="http://www.cdeason.cn/2019/09/03/HyperLogLog/">
+  <meta name="msapplication-navbutton-color" content="#9C27B0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="尹胜的个人博客">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="/images/favicon.png">
+
+  
+    <meta property="article:published_time" content="Tue Sep 03 2019 21:41:48 GMT+0800">
+    <meta property="article:modified_time" content="Tue Sep 03 2019 22:58:35 GMT+0800">
+  
+
+  
+    <link rel="canonical" href="http://www.cdeason.cn/2019/09/03/HyperLogLog/">
+  
+
+  
+  
+
+  
+  <script>
+  var _hmt = _hmt || [];
+  (function() {var hm = document.createElement('script');
+  hm.src = 'https://hm.baidu.com/hm.js?117216f8fc3d9ee821e2eda652408b83';
+  var s = document.getElementsByTagName('script')[0];
+  s.parentNode.insertBefore(hm, s);
+  })();
+</script>
+  
+
+  <link rel="stylesheet" href="/css/mdui.css">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="mdui-appbar-with-toolbar mdui-drawer-body-left mdui-theme-primary-indigo mdui-theme-accent-blue">
+  <script>var a=localStorage.getItem("mdui-theme-layout-dark");if(a){document.getElementsByTagName("body")[0].className+=" mdui-theme-layout-dark"};</script>
+  <header id="header" class="mdui-appbar mdui-appbar-fixed mdui-appbar-scroll-hide mdui-appbar-inset">
+  <div class="mdui-toolbar mdui-color-theme">
+    <a href="javascript:;" class="mdui-btn mdui-btn-icon" mdui-drawer="{target: '#sidebar', swipe: true}"><i class="mdui-icon material-icons">menu</i></a>
+    <a href="/" class="mdui-typo-headline">尹胜的个人博客</a>
+    <div class="mdui-toolbar-spacer"></div>
+    <a href="javascript:;" class="mdui-btn mdui-btn-icon" mdui-dialog="{target: '#search'}" mdui-tooltip="{content: '搜索'}"><i class="mdui-icon material-icons">search</i></a>
+    <a href="/atom.xml" class="mdui-btn mdui-btn-icon" mdui-tooltip="{content: 'RSS'}"><i class="mdui-icon material-icons">rss_feed</i></a>
+  </div>
+</header>
+<div class="mdui-dialog" id="search">
+  
+    <div class="search-form">
+      <input type="search" class="search-form-input" placeholder="请输入关键字">
+    </div>
+    <div class="search-result" data-resource="/search.xml"></div>
+  
+</div>
+  <aside id="sidebar" class="mdui-drawer mdui-drawer-full-height">
+  <div class="mdui-grid-tile">
+    <img src="/images/banner.png" style="height: 160px;">
+    <img src="/images/avatar.png" class="avatar-animation" style="position: absolute; top: 10%; left: 24px; width: 64px; height: 64px; border: 2px solid #fff; border-radius: 50%;">
+    <div class="mdui-grid-tile-actions">
+      <div class="mdui-grid-tile-text">
+        <div class="mdui-grid-tile-title">eason</div>
+        <div class="mdui-grid-tile-subtitle"><i class="mdui-icon material-icons">art_track</i>情不知所起，而一往情深</div>
+      </div>
+      
+        <div class="mdui-grid-tile-buttons">
+          <a href="mailto:1070388550@qq.com" class="mdui-btn mdui-btn-icon" mdui-tooltip="{content: '1070388550@qq.com'}"><i class="mdui-icon material-icons">email</i></a>
+        </div>
+      
+    </div>
+  </div>
+
+  <div class="mdui-list" mdui-collapse="{accordion: true}">
+    <a href="/" class="mdui-list-item mdui-ripple">
+      <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-blue">home</i>
+      <div class="mdui-list-item-content">主页</div>
+    </a>
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-deep-orange">inbox</i>
+        <div class="mdui-list-item-content">归档</div>
+        <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        <a class="mdui-ripple sidebar_archives-link" href="/archives/2019/09/">九月 2019<span class="mdui-ripple sidebar_archives-count">3</span></a><a class="mdui-ripple sidebar_archives-link" href="/archives/2019/08/">八月 2019<span class="mdui-ripple sidebar_archives-count">3</span></a>
+        
+      </div>
+    </div>
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-green">chrome_reader_mode</i>
+        <div class="mdui-list-item-content">分类</div>
+        <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        <a class="mdui-ripple sidebar_archives-link" href="/categories/技术/">技术<span class="mdui-ripple sidebar_archives-count">4</span></a><a class="mdui-ripple sidebar_archives-link" href="/categories/记录/">记录<span class="mdui-ripple sidebar_archives-count">1</span></a>
+        
+      </div>
+    </div>
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-brown">bookmark</i>
+        <div class="mdui-list-item-content">标签</div>
+        <i class="mdui-collapse-item-arrow mdui-icon material-icons">keyboard_arrow_down</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        <a class="mdui-ripple sidebar_archives-link" href="/tags/HyperLogLog/">HyperLogLog<span class="mdui-ripple sidebar_archives-count">1</span></a><a class="mdui-ripple sidebar_archives-link" href="/tags/Redis/">Redis<span class="mdui-ripple sidebar_archives-count">3</span></a><a class="mdui-ripple sidebar_archives-link" href="/tags/hexo/">hexo<span class="mdui-ripple sidebar_archives-count">1</span></a><a class="mdui-ripple sidebar_archives-link" href="/tags/leetcode/">leetcode<span class="mdui-ripple sidebar_archives-count">1</span></a><a class="mdui-ripple sidebar_archives-link" href="/tags/redis-cell/">redis-cell<span class="mdui-ripple sidebar_archives-count">1</span></a><a class="mdui-ripple sidebar_archives-link" href="/tags/算法/">算法<span class="mdui-ripple sidebar_archives-count">1</span></a>
+        
+      </div>
+    </div>
+    <a href="/about" class="mdui-list-item mdui-ripple">
+      <i class="mdui-list-item-icon mdui-icon material-icons mdui-text-color-purple">person</i>
+      <div class="mdui-list-item-content">关于</div>
+    </a>
+  </div>
+
+  <div class="mdui-divider"></div>
+
+  <div class="mdui-list" mdui-collapse="{accordion: true}">
+    
+      <a href="/tagcloud" class="mdui-list-item mdui-ripple">标签云</a>
+    
+      <a href="/photos" class="mdui-list-item mdui-ripple">相册</a>
+    
+    <div class="mdui-collapse-item">
+      <div class="mdui-collapse-item-header mdui-list-item mdui-ripple">
+        <div class="mdui-list-item-content">友情链接</div>
+        <i class="mdui-list-item-icon mdui-icon material-icons">link</i>
+      </div>
+      <div class="mdui-collapse-item-body mdui-list mdui-list-dense">
+        
+        
+          <a href="javascript:;" class="mdui-list-item mdui-ripple mdui-p-l-2 mdui-text-color-theme" style="justify-content: center;">链接为空</a>
+        
+      </div>
+    </div>
+  </div>
+  <div>
+    <iframe frameborder="no" border="0" marginwidth="0" marginheight="0" width=330 height=86 src="//music.163.com/outchain/player?type=2&id=28656155&auto=1&height=66"></iframe>
+  </div>
+</aside>
+
+  <main id="main" class="mdui-m-t-5 fadeIn animated">
+  <link rel="stylesheet" href="https://cdn.bootcss.com/fancybox/3.5.7/jquery.fancybox.min.css">
+  <style>#main article .mdui-card-content .center-block{display:block!important;margin-right:auto!important;margin-left:auto!important}</style>
+  <article class="mdui-card mdui-m-b-5">
+    <header class="mdui-card-media">
+      <img src="/images/random/material-15.png" style="max-height: 240px;">
+      <div class="mdui-card-media-covered">
+        <div class="mdui-card-primary">
+          <div class="mdui-card-primary-title">HyperLogLog</div>
+          <div class="mdui-card-primary-subtitle"><i class="iconfont">&#xe697;</i> 2019-09-03 / <i class="iconfont">&#xe601;</i> eason &nbsp;&nbsp; <span id="busuanzi_container_page_pv" style="display: none;"><i class="iconfont">&#xe7fd;</i> <span id="busuanzi_value_page_pv"></span></span></div>
+        </div>
+      </div>
+      <div class="mdui-card-menu">
+        
+          <button class="mdui-btn mdui-btn-icon mdui-text-color-white" mdui-menu="{target: '#qrcode', align: 'right'}"><i class="mdui-icon material-icons">devices</i></button>
+          <ul class="mdui-menu" id="qrcode">
+            
+              <li class="mdui-menu-item"><a class="mdui-text-center mdui-ripple">发送到手机</a></li>
+            
+            <li class="mdui-menu-item" disabled>
+              
+                <img src="http://qr.liantu.com/api.php?w=246&m=10&text=http://www.cdeason.cn/2019/09/03/HyperLogLog/">
+              
+            </li>
+          </ul>
+        
+        
+          <button class="mdui-btn mdui-btn-icon mdui-text-color-white" mdui-menu="{target: '#share_menu', align: 'right'}"><i class="mdui-icon material-icons">share</i></button>
+          <ul class="mdui-menu" id="share_menu">
+            <li class="mdui-menu-item">
+              <a href="http://service.weibo.com/share/share.php?appkey=&title=HyperLogLog&url=http://www.cdeason.cn/2019/09/03/HyperLogLog/&pic=http://www.cdeason.cn/images/favicon.png&searchPic=false&style=simple" target="_blank" class="mdui-ripple">分享到微博</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://twitter.com/intent/tweet?text=HyperLogLog&url=http://www.cdeason.cn/2019/09/03/HyperLogLog/&via=eason" target="_blank" class="mdui-ripple">分享到Twitter</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://www.facebook.com/sharer/sharer.php?u=http://www.cdeason.cn/2019/09/03/HyperLogLog/" target="_blank" class="mdui-ripple">分享到Facebook</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://plus.google.com/share?url=http://www.cdeason.cn/2019/09/03/HyperLogLog/" target="_blank" class="mdui-ripple">分享到Google+</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://www.linkedin.com/shareArticle?mini=true&url=http://www.cdeason.cn/2019/09/03/HyperLogLog/&title=HyperLogLog" target="_blank" class="mdui-ripple">分享到LinkedIn</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="http://connect.qq.com/widget/shareqq/index.html?site=尹胜的个人博客&title=HyperLogLog&summary=Hope I can keep it up.&pics=http://www.cdeason.cn/images/favicon.png&url=http://www.cdeason.cn/2019/09/03/HyperLogLog/" target="_blank" class="mdui-ripple">分享到QQ</a>
+            </li>
+            <li class="mdui-menu-item">
+              <a href="https://telegram.me/share/url?url=http://www.cdeason.cn/2019/09/03/HyperLogLog/&text=HyperLogLog" target="_blank" class="mdui-ripple">分享到Telegram</a>
+            </li>
+          </ul>
+        
+      </div>
+    </header>
+    <div class="mdui-card-content mdui-typo">
+      <h2 id="概念"><a href="#概念" class="headerlink" title="概念"></a>概念</h2><p>HyperLogLog是redis的高级数据结构，提供不精确的去重功能，标准误差0.81%</p>
+<h2 id="场景"><a href="#场景" class="headerlink" title="场景"></a>场景</h2><p>一个页面有几千万访问量，统计这个页面一天的UV（UV需要去重，同一用户一天的多次请求只能算一次），比如105万的访问量与106万的访问量并没有多大区别，所以可以用HyperLogLog实现。</p>
+<h2 id="用法"><a href="#用法" class="headerlink" title="用法"></a>用法</h2><ol>
+<li>pfadd<br>用法 ：pfadd key value…</li>
+<li>pfcount<br>用法 ：pfcount key</li>
+<li>pfmerge<br>用法 ：用于将多个pf计数值累加在一起形成一个新的pf值， pf为发明HyperLogLog的人名字首字母缩写。<br><img src="/images/2019/09/03/88db4dd0-ce50-11e9-aefc-35a1bfce56cf.png" alt="pfmerge.png"><h2 id="注意"><a href="#注意" class="headerlink" title="注意"></a>注意</h2>HyperLogLog需要12KB存储空间，不适合单个用户使用，如果有上亿用户，相比于set的方案，存储空间只能算九牛一毛了。<br>当计数较小的时候。Redis对HyperLogLog有优化，计数小的时候空间占用很小。</li>
+</ol>
+
+      <blockquote class="mdui-m-t-5">
+        
+        <strong>本文链接：</strong><a href="http://www.cdeason.cn/2019/09/03/HyperLogLog/">http://www.cdeason.cn/2019/09/03/HyperLogLog/</a>
+      </blockquote>
+      
+        <div class="mdui-text-center">
+          <button class="mdui-fab mdui-color-deep-orange mdui-text-color-white mdui-ripple" mdui-dialog="{target: '#donate'}" mdui-tooltip="{content: '打赏', position: 'top'}"><i class="mdui-icon material-icons">thumb_up</i></button>
+        </div>
+      
+    </div>
+    <footer class="mdui-card-actions">
+      
+        <a class="mdui-ripple article_categories-link" href="/categories/技术/">技术</a>
+      
+      
+        <a class="mdui-ripple article_tags-link" href="/tags/HyperLogLog/">HyperLogLog</a><a class="mdui-ripple article_tags-link" href="/tags/Redis/">Redis</a>
+      
+    </footer>
+    
+      <div class="mdui-dialog" id="donate">
+        <div class="mdui-tab mdui-tab-centered" mdui-tab>
+          
+            <a href="#donate-0" class="mdui-ripple">支付宝</a>
+          
+        </div>
+        
+        
+          <div id="donate-0" class="mdui-p-a-2 mdui-typo mdui-text-center">
+            
+              <img src="/images/alipay.jpg" style="width: 300px;">
+            
+          </div>
+        
+      </div>
+    
+  </article>
+  <script src="https://cdn.bootcss.com/jquery/3.3.1/jquery.min.js"></script>
+<script src="https://cdn.bootcss.com/fancybox/3.5.7/jquery.fancybox.min.js"></script>
+  <script>$("#main article .mdui-card-content img.fancybox").on("click",function(e){$.fancybox.open({src:$(this).attr("src")});});</script>
+
+
+  <nav id="paginator">
+    
+      <a rel="prev" class="extend prev" href="/2019/09/04/redis-cell-限流模块/">
+        <button aria-label="prev" class="mdui-btn mdui-btn-raised mdui-btn-dense mdui-btn-icon mdui-color-theme-accent mdui-ripple"><i class="mdui-icon material-icons">arrow_back</i></button>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;上一篇
+      </a>
+    
+    <div class="spacer"></div>
+    
+      <a rel="next" class="extend next" href="/2019/08/28/leetcode刷题记录/">
+        下一篇&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <button aria-label="next" class="mdui-btn mdui-btn-raised mdui-btn-dense mdui-btn-icon mdui-color-theme-accent mdui-ripple"><i class="mdui-icon material-icons">arrow_forward</i></button>
+      </a>
+    
+  </nav>
+
+
+  <div id="comment" class="mdui-m-t-5">
+    <div class="vcomment"></div>
+<script src="//cdnjs.loli.net/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+<script src="//cdn1.lncld.net/static/js/3.0.4/av-min.js"></script>
+<script src="//unpkg.com/valine/dist/Valine.min.js"></script>
+<script>
+  var GUEST_INFO = ['nick', 'mail', 'link'];
+  var guest_info = ''.split(',').filter(function (item) {
+    return GUEST_INFO.indexOf(item) > -1;
+  });
+  var notify = '' === 'true';
+  var verify = '' === 'true';
+  new Valine({
+    av: AV,
+    el: '.vcomment',
+    notify: notify,
+    verify: verify,
+    appId: "Q1efkVbdwTB1TdxzSaxnREJ1-gzGzoHsz",
+    appKey: "GzNWwb7pzB7WKtPzb1awqX5W",
+    placeholder: "来说两句吧...",
+    pageSize: '10',
+    avatar: '',
+    lang: '',
+    guest_info: guest_info
+  });
+</script>
+  </div>
+
+
+</main>
+  <footer id="footer" class="mdui-m-t-5 mdui-p-y-3 mdui-color-theme">
+  <div class="mdui-p-y-0 mdui-text-center">
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+  </div>
+  <div class="mdui-p-y-1 mdui-text-center">
+    Copyright &copy; 2019 - 2020 eason<br>
+    Powered by <a href="https://hexo.io/" target="_blank" class="mdui-text-color-theme-accent">Hexo</a> | 蜀ICP备18035448号-1（http://www.beian.miit.gov.cn）
+    <br>
+      <span id="busuanzi_container_site_pv" style="display: none;"><i class="iconfont">&#xe7fd;</i> <span id="busuanzi_value_site_pv"></span></span> &nbsp;&nbsp;
+      <span id="busuanzi_container_site_uv" style="display: none;"><i class="iconfont">&#xe601;</i> <span id="busuanzi_value_site_uv"></span></span>
+    
+  </div>
+</footer>
+  <button id="gotop" class="mdui-fab mdui-fab-fixed mdui-fab-hide mdui-ripple mdui-color-theme-accent"><i class="mdui-icon material-icons">arrow_upward</i></button>
+  <script async src="http://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+  <script src="/js/mdui.js"></script>
+<script src="/js/script.js"></script>
+</body>
+</html>
